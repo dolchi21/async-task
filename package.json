@@ -1,0 +1,11 @@
+{
+  "name": "async-task",
+  "version": "0.1.0",
+  "description": "Execute node modules as child processes.",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "author": "dolchi21",
+  "license": "ISC"
+}
