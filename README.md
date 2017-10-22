@@ -11,11 +11,9 @@ var result = await task.execute()
 ```js
 // task.js
 var Task = require('async-task')
-
 var T = Task.create()
-
-T.main(async function main(){
-    var result = await cpuIntensiveTask()
+T.main(function main(){
+    var result = cpuIntensiveTask()
     T.resolve(result)
 })
 ```
