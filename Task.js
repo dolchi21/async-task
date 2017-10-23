@@ -6,6 +6,7 @@ function Task() {
 Task.instantiate = function instantiate(modulePath) {
     var child = fork(modulePath, ['--inspect'])
 
+    child.on('error', err => console.error(child.pid, err))
     child.on('exit', (code, signal) => console.log(child.pid, 'exited', code, signal))
 
     var send = (type, payload) => sendToProcess(child, type, payload)
@@ -14,6 +15,9 @@ Task.instantiate = function instantiate(modulePath) {
     child.execute = async () => {
         await command('EXECUTE')
         return child.onResponse
+    }
+    child.terminate = async () => {
+        return await command('TERMINATE')
     }
     child.onResponse = (() => {
         return new Promise((resolve, reject) => {
@@ -30,15 +34,24 @@ Task.instantiate = function instantiate(modulePath) {
 }
 Task.create = function create() {
     var mainFn;
-    process.on('message', message => {
-        if (message.type !== 'COMMAND') return
-        if (message.payload !== 'EXECUTE') return
-        mainFn && mainFn()
+    process.on('message', action => {
+        switch (action.type) {
+            case 'COMMAND': {
+                if (action.payload === 'EXECUTE')
+                    mainFn && mainFn()
+
+                if (action.payload === 'TERMINATE')
+                    process.exit(0)
+
+                break;
+            }
+        }
     })
     return {
         main: fn => {
             mainFn = fn
         },
+        message: msg => sendToProcess(process, 'MESSAGE', msg),
         resolve: data => {
             return sendToProcess(process, 'RESOLVE', data)
         }
