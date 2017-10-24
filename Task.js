@@ -3,8 +3,8 @@ var { fork } = require('child_process')
 function Task() {
     return Task.create()
 }
-Task.instantiate = function instantiate(modulePath) {
-    var child = fork(modulePath, ['--inspect'])
+Task.instantiate = function instantiate(modulePath, args, options) {
+    var child = fork(modulePath, args, options)
 
     child.on('error', err => console.error(child.pid, err))
     child.on('exit', (code, signal) => console.log(child.pid, 'exited', code, signal))
