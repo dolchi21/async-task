@@ -23,3 +23,46 @@ T.main(function onExecuteCall() {
     T.resolve(result)
 })
 ```
+
+## API
+
+Sets the current script as a Task.
+
+#### Task.create()
+
+```js
+var T = Task.create()
+```
+
+Sets the function to be executed.
+#### T.main(fn: Function)
+
+```js
+var T = Task.create()
+T.main(async function doThis() {
+    /* ... */
+})
+```
+
+Get custom data setted from parent process.
+#### T.get()
+
+```js
+var T = Task.create()
+T.main(async function doThis() {
+    var data = T.get('customData')
+    /* ... */
+})
+```
+
+Communicates the result to the parent process.
+
+#### T.resolve()
+
+```js
+var T = Task.create()
+T.main(async function getUsers() {
+    /* ... */
+    T.resolve(users)
+})
+```
