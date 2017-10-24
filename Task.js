@@ -1,13 +1,13 @@
 var { fork } = require('child_process')
 
-function Task() {
-    return Task.create()
+function Task(fn) {
+    return Task.create(fn)
 }
 Task.instantiate = function instantiate(modulePath, args, options) {
     var child = fork(modulePath, args, options)
 
-    child.on('error', err => console.error(child.pid, err))
-    child.on('exit', (code, signal) => console.log(child.pid, 'exited', code, signal))
+    //child.on('error', err => console.error(child.pid, err))
+    //child.on('exit', (code, signal) => console.log(child.pid, 'exited', code, signal))
 
     var send = (type, payload) => sendToProcess(child, type, payload)
     var command = cmd => send('COMMAND', cmd)
@@ -37,8 +37,8 @@ Task.instantiate = function instantiate(modulePath, args, options) {
 
     return child
 }
-Task.create = function create() {
-    var mainFn;
+Task.create = function create(fn) {
+    var mainFn = fn
     var dataValues = {}
 
     function handleCommand(action) {
@@ -46,8 +46,7 @@ Task.create = function create() {
         if (payload === 'EXECUTE') return mainFn && mainFn()
         if (payload === 'TERMINATE') return process.exit(0)
     }
-
-    process.on('message', action => {
+    function onMessage(action) {
         var { type, payload } = action
         switch (type) {
             case 'COMMAND': {
@@ -58,15 +57,17 @@ Task.create = function create() {
                 return
             }
         }
-    })
+    }
+    process.on('message', onMessage)
     return {
         get: key => key ? dataValues[key] : dataValues,
-        main: fn => {
-            mainFn = fn
-        },
+        main: fn => mainFn = fn,
         message: msg => sendToProcess(process, 'MESSAGE', msg),
         resolve: data => {
             return sendToProcess(process, 'RESOLVE', data)
+        },
+        disconnect() {
+            process.removeListener('message', onMessage)
         }
     }
 }

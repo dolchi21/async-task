@@ -1,15 +1,15 @@
-import *  as ChildProcess from 'child_process'
-
-declare class TaskInstance extends ChildProcess {
-    async execute(): Promise<any>
-    async terminate(): Promise<any>
-    
+declare class TaskManager extends ChildProcess {
+    execute(): Promise<any>
+    set(key: string, value): Promise<any>
+    terminate(): Promise<any>
 }
 
-declare interface TaskGenerator {
-    create(): Task
-    instantiate(modulePath: string): TaskInstance
+declare class Task {
+    get(key?: string): any
+    main(fn: Function): this
+    resolve(data: any): Promise<any>
 }
 
-export declare function instantiate(modulePath: string): TaskInstance
+export declare function create(fn?: Function): Task
+export declare function instantiate(modulePath: string): TaskManager
 
