@@ -16,6 +16,11 @@ Task.instantiate = function instantiate(modulePath) {
         await command('EXECUTE')
         return child.onResponse
     }
+    child.set = async function set(key, value) {
+        return await send('SET', {
+            key, value
+        })
+    }
     child.terminate = async () => {
         return await command('TERMINATE')
     }
@@ -34,20 +39,28 @@ Task.instantiate = function instantiate(modulePath) {
 }
 Task.create = function create() {
     var mainFn;
+    var dataValues = {}
+
+    function handleCommand(action) {
+        var { type, payload } = action
+        if (payload === 'EXECUTE') return mainFn && mainFn()
+        if (payload === 'TERMINATE') return process.exit(0)
+    }
+
     process.on('message', action => {
-        switch (action.type) {
+        var { type, payload } = action
+        switch (type) {
             case 'COMMAND': {
-                if (action.payload === 'EXECUTE')
-                    mainFn && mainFn()
-
-                if (action.payload === 'TERMINATE')
-                    process.exit(0)
-
-                break;
+                return handleCommand(action)
+            }
+            case 'SET': {
+                dataValues[payload.key] = payload.value
+                return
             }
         }
     })
     return {
+        get: key => key ? dataValues[key] : dataValues,
         main: fn => {
             mainFn = fn
         },
