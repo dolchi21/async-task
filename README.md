@@ -19,7 +19,7 @@ var Task = require('async-task')
 var T = Task.create()
 T.main(function onExecuteCall() {
     var customData = T.get('customData') // 'a simple string or anything'
-    var doc = T.get('document') // { name: 'example.pdf' }
+    var doc = T.get('document') // { id: 123, name: 'example.pdf' }
     var result = cpuIntensiveTask()
     T.resolve(result)
 })
