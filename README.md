@@ -24,7 +24,35 @@ T.main(function onExecuteCall() {
 })
 ```
 
-## API
+## TaskManager API
+
+Creates a task manager.
+
+#### Task.createTaskManager(modulePath, [args, [options]]): TaskManager
+
+```js
+var task = await Task.createTaskManager('./example-task.js')
+```
+
+Tells forked process to execute main function and returns a promise with the result.
+
+#### taskManager.execute()
+
+```js
+var task = await Task.createTaskManager('./example-task.js')
+var result = await task.execute()
+```
+
+Sets custom data inside the forked process.
+
+#### taskManager.set(key: string, value: any)
+
+```js
+var task = await Task.createTaskManager('./example-task.js')
+task.set('input', 42)
+```
+
+## Task API
 
 Sets the current script as a Task.
 
