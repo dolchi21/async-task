@@ -4,9 +4,10 @@ Execute node modules as child processes (child_process.fork wrapper).
 ```js
 // parent.js
 var Task = require('async-task')
-var task = Task.instantiate('./task.js')
-await task.set('customData', 'a simple string or anything')
+var task = await Task.createTaskManager('./task.js')
+await task.set('customData', 'a simple string')
 await task.set('document', {
+    id: 123,
     name: 'example.pdf'
 })
 var result = await task.execute()
@@ -94,3 +95,8 @@ T.main(async function getUsers() {
     T.resolve(users)
 })
 ```
+
+## TODO
+
+- Error handling.
+- taskManager.execute() should reject if forked process sends error
