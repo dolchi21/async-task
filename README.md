@@ -97,6 +97,3 @@ T.main(async function getUsers() {
 ```
 
 ## TODO
-
-- Error handling.
-- taskManager.execute() should reject if forked process sends error

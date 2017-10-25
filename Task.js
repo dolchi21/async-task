@@ -15,7 +15,7 @@ Task.createTaskManager = function createTaskManager(modulePath, args, options) {
 }
 Task.instantiate = function instantiate(modulePath, args, options) {
     var child = fork(modulePath, args, options)
-    
+
     //child.on('error', err => console.error(child.pid, err))
     //child.on('exit', (code, signal) => console.log(child.pid, 'exited', code, signal))
 
@@ -37,9 +37,16 @@ Task.instantiate = function instantiate(modulePath, args, options) {
     child.onResponse = (() => {
         return new Promise((resolve, reject) => {
             function resolveOnReturn(msg) {
-                if (msg.type !== 'RESOLVE') return
-                child.response = msg.payload
-                resolve(msg.payload)
+                switch (msg.type) {
+                    case 'RESOLVE': {
+                        child.response = msg.payload
+                        return resolve(msg.payload)
+                    }
+                    case 'REJECT': {
+                        return reject(rebuildError(msg.payload))
+                    }
+                    default: return
+                }
             }
             child.on('message', resolveOnReturn)
         })
@@ -51,9 +58,36 @@ Task.create = function create(fn) {
     var mainFn = fn
     var dataValues = {}
 
+    function execute() {
+        if (!mainFn) return Promise.reject(new Error('NoMainFunction'))
+        return new Promise((resolve, reject) => {
+            try {
+                resolve(mainFn())
+            } catch (err) {
+                reject(err)
+            }
+        }).catch(err => {
+            console.error('mainFn()', 'error')
+            disconnect()
+            reject(err)
+        })
+    }
+    function resolve(data) {
+        return sendToProcess(process, 'RESOLVE', data)
+    }
+    function reject(err) {
+        var { name, message, stack } = err
+        return sendToProcess(process, 'REJECT', {
+            name, message, stack
+        })
+    }
+    function disconnect() {
+        process.removeListener('message', onMessage)
+    }
+
     function handleCommand(action) {
         var { type, payload } = action
-        if (payload === 'EXECUTE') return mainFn && mainFn()
+        if (payload === 'EXECUTE') return execute()
         if (payload === 'TERMINATE') return process.exit(0)
     }
     function onMessage(action) {
@@ -73,12 +107,9 @@ Task.create = function create(fn) {
         get: key => key ? dataValues[key] : dataValues,
         main: fn => mainFn = fn,
         message: msg => sendToProcess(process, 'MESSAGE', msg),
-        resolve: data => {
-            return sendToProcess(process, 'RESOLVE', data)
-        },
-        disconnect() {
-            process.removeListener('message', onMessage)
-        }
+        resolve,
+        reject,
+        disconnect
     }
 }
 
@@ -92,3 +123,11 @@ function sendToProcess(process, type, payload) {
 }
 
 module.exports = Task
+
+function rebuildError(err) {
+    var error = new Error()
+    error.name = err.name
+    error.message = err.message
+    error.stack = err.stack
+    return error
+}
