@@ -17,6 +17,9 @@ Task.createTaskManager = function createTaskManager(modulePath, args, options) {
 Task.instantiate = function instantiate(modulePath, args, options) {
     var child = fork(modulePath, args, options)
 
+    var onMessage = Rx.Observable.fromEvent(child, 'message')
+    child.onData = onMessage.filter(({ type }) => type === 'DATA').map(({ payload }) => payload)
+    //onMessage.subscribe(msg => console.log(msg))
     //child.on('error', err => console.error(child.pid, err))
     //child.on('exit', (code, signal) => console.log(child.pid, 'exited', code, signal))
 
@@ -37,19 +40,13 @@ Task.instantiate = function instantiate(modulePath, args, options) {
     }
     child.onResponse = (() => {
         return new Promise((resolve, reject) => {
-            function resolveOnReturn(msg) {
-                switch (msg.type) {
-                    case 'RESOLVE': {
-                        child.response = msg.payload
-                        return resolve(msg.payload)
-                    }
-                    case 'REJECT': {
-                        return reject(rebuildError(msg.payload))
-                    }
-                    default: return
-                }
-            }
-            child.on('message', resolveOnReturn)
+            var onResult = onMessage.filter(({ type }) => {
+                return (type === 'RESOLVE') || (type === 'REJECT')
+            }).first()
+            onResult.subscribe(({ type, payload }) => {
+                if (type === 'RESOLVE') return resolve(payload)
+                if (type === 'REJECT') return reject(rebuildError(payload))
+            })
         })
     })()
 
@@ -60,6 +57,7 @@ Task.create = function create(fn) {
     var dataValues = {}
 
     var COM = {
+        send: data => sendToProcess(process, 'DATA', data),
         message: msg => sendToProcess(process, 'MESSAGE', msg),
         resolve: data => sendToProcess(process, 'RESOLVE', data),
         reject: err => {
@@ -71,8 +69,8 @@ Task.create = function create(fn) {
     }
 
     var onMessage = Rx.Observable.fromEvent(process, 'message')
-    var onCommand = onMessage.filter(action => action.type === 'COMMAND').map(action => action.payload)
-    var onSet = onMessage.filter(action => action.type === 'SET').map(action => action.payload)
+    var onCommand = onMessage.filter(({ type }) => type === 'COMMAND').map(({ payload }) => payload)
+    var onSet = onMessage.filter(({ type }) => type === 'SET').map(({ payload }) => payload)
 
     var disconnect = (function makeSubs() {
         var subs = [
@@ -107,6 +105,7 @@ Task.create = function create(fn) {
     return {
         get: key => key ? dataValues[key] : dataValues,
         main: fn => mainFn = fn,
+        send: COM.data,
         message: COM.message,
         resolve: COM.resolve,
         reject: COM.reject,
