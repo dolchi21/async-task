@@ -18,7 +18,7 @@ describe('async-task', function () {
     it('should fail because module does not exist.', async () => {
         var failed = false
         try {
-            var task = await Task.createTaskManager(__dirname + '/example-tas.js')
+            var task = await Task.createTaskManager(__dirname + '/idonotexist.js')
         } catch (err) {
             failed = true
         }

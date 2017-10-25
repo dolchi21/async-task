@@ -1,5 +1,6 @@
 var { fork } = require('child_process')
 var fs = require('fs')
+var Rx = require('rxjs')
 
 function Task(fn) {
     return Task.create(fn)
@@ -58,8 +59,23 @@ Task.create = function create(fn) {
     var mainFn = fn
     var dataValues = {}
 
+    var onMessage = Rx.Observable.fromEvent(process, 'message')
+    var onCommand = onMessage.filter(action => action.type === 'COMMAND')
+    var onSet = onMessage.filter(action => action.type === 'SET').map(action => action.payload)
+
+    var disconnect = (function makeSubs() {
+        var subs = [
+            onCommand.subscribe(action => {
+                handleCommand(action)
+            }),
+            onSet.subscribe(data => {
+                dataValues[data.key] = data.value
+            })
+        ]
+        return () => subs.map(sub => sub.unsubscribe())
+    })()
+
     function execute() {
-        if (!mainFn) return Promise.reject(new Error('NoMainFunction'))
         return new Promise((resolve, reject) => {
             try {
                 resolve(mainFn())
@@ -81,28 +97,13 @@ Task.create = function create(fn) {
             name, message, stack
         })
     }
-    function disconnect() {
-        process.removeListener('message', onMessage)
-    }
 
     function handleCommand(action) {
         var { type, payload } = action
         if (payload === 'EXECUTE') return execute()
         if (payload === 'TERMINATE') return process.exit(0)
     }
-    function onMessage(action) {
-        var { type, payload } = action
-        switch (type) {
-            case 'COMMAND': {
-                return handleCommand(action)
-            }
-            case 'SET': {
-                dataValues[payload.key] = payload.value
-                return
-            }
-        }
-    }
-    process.on('message', onMessage)
+
     return {
         get: key => key ? dataValues[key] : dataValues,
         main: fn => mainFn = fn,
