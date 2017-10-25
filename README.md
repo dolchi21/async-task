@@ -27,6 +27,8 @@ T.main(function onExecuteCall() {
 
 ## TaskManager API
 
+### Creation
+
 Creates a task manager.
 
 #### Task.createTaskManager(modulePath, [args, [options]]): TaskManager
@@ -34,6 +36,8 @@ Creates a task manager.
 ```js
 var task = await Task.createTaskManager('./example-task.js')
 ```
+
+### Tell child to execute main function
 
 Tells forked process to execute main function and returns a promise with the result.
 
@@ -43,6 +47,8 @@ Tells forked process to execute main function and returns a promise with the res
 var task = await Task.createTaskManager('./example-task.js')
 var result = await task.execute()
 ```
+
+### Set custom data on the fly
 
 Sets custom data inside the forked process.
 
