@@ -1,11 +1,21 @@
 var { fork } = require('child_process')
+var fs = require('fs')
 
 function Task(fn) {
     return Task.create(fn)
 }
+Task.createTaskManager = function createTaskManager(modulePath, args, options) {
+    return new Promise((resolve, reject) => {
+        fs.access(modulePath, err => {
+            if (err) return reject(err)
+            var task = Task.instantiate(modulePath, args, options)
+            resolve(task)
+        })
+    })
+}
 Task.instantiate = function instantiate(modulePath, args, options) {
     var child = fork(modulePath, args, options)
-
+    
     //child.on('error', err => console.error(child.pid, err))
     //child.on('exit', (code, signal) => console.log(child.pid, 'exited', code, signal))
 
