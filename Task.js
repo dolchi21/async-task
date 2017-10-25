@@ -59,14 +59,30 @@ Task.create = function create(fn) {
     var mainFn = fn
     var dataValues = {}
 
+    var COM = {
+        message: msg => sendToProcess(process, 'MESSAGE', msg),
+        resolve: data => sendToProcess(process, 'RESOLVE', data),
+        reject: err => {
+            var { name, message, stack } = err
+            return sendToProcess(process, 'REJECT', {
+                name, message, stack
+            })
+        }
+    }
+
     var onMessage = Rx.Observable.fromEvent(process, 'message')
-    var onCommand = onMessage.filter(action => action.type === 'COMMAND')
+    var onCommand = onMessage.filter(action => action.type === 'COMMAND').map(action => action.payload)
     var onSet = onMessage.filter(action => action.type === 'SET').map(action => action.payload)
 
     var disconnect = (function makeSubs() {
         var subs = [
-            onCommand.subscribe(action => {
-                handleCommand(action)
+            onCommand.subscribe(cmd => {
+                switch (cmd) {
+                    case 'EXECUTE':
+                        return execute()
+                    case 'TERMINATE':
+                        return process.exit(0)
+                }
             }),
             onSet.subscribe(data => {
                 dataValues[data.key] = data.value
@@ -83,33 +99,17 @@ Task.create = function create(fn) {
                 reject(err)
             }
         }).catch(err => {
-            console.error('mainFn()', 'error')
             disconnect()
-            reject(err)
+            COM.reject(err)
         })
-    }
-    function resolve(data) {
-        return sendToProcess(process, 'RESOLVE', data)
-    }
-    function reject(err) {
-        var { name, message, stack } = err
-        return sendToProcess(process, 'REJECT', {
-            name, message, stack
-        })
-    }
-
-    function handleCommand(action) {
-        var { type, payload } = action
-        if (payload === 'EXECUTE') return execute()
-        if (payload === 'TERMINATE') return process.exit(0)
     }
 
     return {
         get: key => key ? dataValues[key] : dataValues,
         main: fn => mainFn = fn,
-        message: msg => sendToProcess(process, 'MESSAGE', msg),
-        resolve,
-        reject,
+        message: COM.message,
+        resolve: COM.resolve,
+        reject: COM.reject,
         disconnect
     }
 }
