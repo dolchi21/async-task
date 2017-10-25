@@ -15,4 +15,16 @@ describe('async-task', function () {
         if (result !== 42) throw new Error('Not42')
     })
 
+    it('should fail because module does not exist.', async () => {
+        var failed = false
+        try {
+            var task = await Task.createTaskManager(__dirname + '/example-tas.js')
+        } catch (err) {
+            failed = true
+        }
+        if (!failed) {
+            throw new Error('ItDidNotFail')
+        }
+    })
+
 })
