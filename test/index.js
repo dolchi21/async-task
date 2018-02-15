@@ -3,7 +3,8 @@ var Task = require('../Task')
 describe('async-task', function () {
 
     it('should create a task.', async () => {
-        var task = Task.instantiate(__dirname + '/example-task.js')
+        var script = __dirname + '/example-task.js'
+        var task = Task.instantiate(script)
         var result = await task.execute()
         return task.terminate()
     })

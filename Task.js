@@ -1,6 +1,7 @@
 var { fork } = require('child_process')
 var fs = require('fs')
 var Rx = require('rxjs')
+var uuid = require('uuid')
 
 function Task(fn) {
     return Task.create(fn)
@@ -17,13 +18,13 @@ Task.createTaskManager = function createTaskManager(modulePath, args, options) {
 Task.instantiate = function instantiate(modulePath, args, options) {
     var child = fork(modulePath, args, options)
 
+    var channel = MessageChannel(child)
+    var sendToProcess = channel.send
+
     var onMessage = Rx.Observable.fromEvent(child, 'message')
     child.onData = onMessage.filter(({ type }) => type === 'DATA').map(({ payload }) => payload)
-    //onMessage.subscribe(msg => console.log(msg))
-    //child.on('error', err => console.error(child.pid, err))
-    //child.on('exit', (code, signal) => console.log(child.pid, 'exited', code, signal))
 
-    var send = (type, payload) => sendToProcess(child, type, payload)
+    var send = (type, payload) => sendToProcess(type, payload)
     var command = cmd => send('COMMAND', cmd)
 
     child.execute = async () => {
@@ -56,13 +57,17 @@ Task.create = function create(fn) {
     var mainFn = fn
     var dataValues = {}
 
+    var channel = MessageChannel(process)
+
+    var sendToProcess = (type, payload) => channel.send(type, payload)
+
     var COM = {
-        send: data => sendToProcess(process, 'DATA', data),
-        message: msg => sendToProcess(process, 'MESSAGE', msg),
-        resolve: data => sendToProcess(process, 'RESOLVE', data),
+        send: data => sendToProcess('DATA', data),
+        message: msg => sendToProcess('MESSAGE', msg),
+        resolve: data => sendToProcess('RESOLVE', data),
         reject: err => {
             var { name, message, stack } = err
-            return sendToProcess(process, 'REJECT', {
+            return sendToProcess('REJECT', {
                 name, message, stack
             })
         }
@@ -120,6 +125,49 @@ function sendToProcess(process, type, payload) {
             payload
         }, err => err ? reject(err) : resolve())
     })
+}
+
+function MessageChannel(process) {
+    var confirmationCallbacks = {}
+
+    function send(type, payload) {
+        var messageId = uuid.v4()
+        return new Promise((resolve, reject) => {
+            confirmationCallbacks[messageId] = resolve
+            process.send({
+                id: messageId,
+                type,
+                payload
+            }, err => {
+                if (!err) return
+                delete confirmationCallbacks[messageId]
+                reject(err)
+            })
+        })
+    }
+
+    function onMessage(data) {
+        //console.log(process.pid, JSON.stringify(data))
+        if (data.type === 'CONFIRM') {
+            if (confirmationCallbacks[data.payload]) {
+                confirmationCallbacks[data.payload]()
+                delete confirmationCallbacks[data.payload]
+            }
+        }
+        if (data.type !== 'CONFIRM' && data.id) {
+            console.log(process.pid, JSON.stringify(data))
+            send('CONFIRM', data.id)
+        }
+    }
+
+    process.on('message', onMessage)
+
+    return {
+        send,
+        close() {
+            process.removeListener('message', onMessage)
+        }
+    }
 }
 
 module.exports = Task
