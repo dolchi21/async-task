@@ -118,15 +118,6 @@ Task.create = function create(fn) {
     }
 }
 
-function sendToProcess(process, type, payload) {
-    return new Promise((resolve, reject) => {
-        process.send({
-            type,
-            payload
-        }, err => err ? reject(err) : resolve())
-    })
-}
-
 function MessageChannel(process) {
     var confirmationCallbacks = {}
 
@@ -147,7 +138,6 @@ function MessageChannel(process) {
     }
 
     function onMessage(data) {
-        //console.log(process.pid, JSON.stringify(data))
         if (data.type === 'CONFIRM') {
             if (confirmationCallbacks[data.payload]) {
                 confirmationCallbacks[data.payload]()
@@ -155,7 +145,6 @@ function MessageChannel(process) {
             }
         }
         if (data.type !== 'CONFIRM' && data.id) {
-            console.log(process.pid, JSON.stringify(data))
             send('CONFIRM', data.id)
         }
     }
