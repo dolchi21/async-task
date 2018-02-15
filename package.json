@@ -4,11 +4,12 @@
   "description": "Execute node modules as child processes.",
   "main": "index.js",
   "scripts": {
-    "test": "mocha"
+    "test": "mocha test/index.js"
   },
   "author": "dolchi21",
   "license": "ISC",
   "devDependencies": {
+    "chai": "^4.1.2",
     "mocha": "^4.0.1"
   },
   "dependencies": {
