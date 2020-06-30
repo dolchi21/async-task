@@ -1,7 +1,8 @@
-var { fork } = require('child_process')
-var fs = require('fs')
-var Rx = require('rxjs')
-var uuid = require('uuid')
+import { fork, ChildProcess } from 'child_process'
+import * as fs from 'fs'
+import * as Rx from 'rxjs'
+
+import { MessageChannel, Message } from './MessageChannel'
 
 function Task(fn) {
     return Task.create(fn)
@@ -16,7 +17,7 @@ Task.createTaskManager = function createTaskManager(modulePath, args, options) {
     })
 }
 Task.instantiate = function instantiate(modulePath, args, options) {
-    var child = fork(modulePath, args, options)
+    var child = fork(modulePath, args, options) as any
 
     var channel = MessageChannel(child)
     var sendToProcess = channel.send
@@ -53,16 +54,16 @@ Task.instantiate = function instantiate(modulePath, args, options) {
 
     return child
 }
-Task.create = function create(fn) {
+Task.create = function create(fn: Function) {
     var mainFn = fn
-    var dataValues = {}
+    var dataValues: { [key: string]: any } = {}
 
     var channel = MessageChannel(process)
 
-    var sendToProcess = (type, payload) => channel.send(type, payload)
+    var sendToProcess = (type: string, payload: any) => channel.send(type, payload)
 
     var COM = {
-        send: data => sendToProcess('DATA', data),
+        send: (data: any) => sendToProcess('DATA', data),
         message: msg => sendToProcess('MESSAGE', msg),
         resolve: data => sendToProcess('RESOLVE', data),
         reject: err => {
@@ -73,95 +74,46 @@ Task.create = function create(fn) {
         }
     }
 
-    var onMessage = Rx.Observable.fromEvent(process, 'message')
-    var onCommand = onMessage.filter(({ type }) => type === 'COMMAND').map(({ payload }) => payload)
-    var onSet = onMessage.filter(({ type }) => type === 'SET').map(({ payload }) => payload)
-
-    var disconnect = (function makeSubs() {
-        var subs = [
-            onCommand.subscribe(cmd => {
-                switch (cmd) {
-                    case 'EXECUTE':
-                        return execute()
-                    case 'TERMINATE':
-                        return process.exit(0)
-                }
-            }),
-            onSet.subscribe(data => {
-                dataValues[data.key] = data.value
-            })
-        ]
-        return () => subs.map(sub => sub.unsubscribe())
-    })()
+    process.on('message', (data: Message) => {
+        switch (data.type) {
+            case 'COMMAND': {
+                if (data.payload === 'EXECUTE')
+                    return execute()
+                if (data.payload === 'TERMINATE')
+                    return process.exit(0)
+            }
+            case 'SET': {
+                dataValues[data.payload.key] = data.payload.value
+                return
+            }
+        }
+    })
 
     function execute() {
         return new Promise((resolve, reject) => {
             try {
-                resolve(mainFn())
+                resolve(mainFn(dataValues))
             } catch (err) {
                 reject(err)
             }
         }).catch(err => {
-            disconnect()
             COM.reject(err)
         })
     }
 
     return {
-        get: key => key ? dataValues[key] : dataValues,
-        main: fn => mainFn = fn,
+        get: (key: string) => key ? dataValues[key] : dataValues,
+        main: (fn: Function) => mainFn = fn,
         send: COM.data,
         message: COM.message,
         resolve: COM.resolve,
         reject: COM.reject,
-        disconnect
-    }
-}
-
-function MessageChannel(process) {
-    var confirmationCallbacks = {}
-
-    function send(type, payload) {
-        var messageId = uuid.v4()
-        return new Promise((resolve, reject) => {
-            confirmationCallbacks[messageId] = resolve
-            process.send({
-                id: messageId,
-                type,
-                payload
-            }, err => {
-                if (!err) return
-                delete confirmationCallbacks[messageId]
-                reject(err)
-            })
-        })
-    }
-
-    function onMessage(data) {
-        if (data.type === 'CONFIRM') {
-            if (confirmationCallbacks[data.payload]) {
-                confirmationCallbacks[data.payload]()
-                delete confirmationCallbacks[data.payload]
-            }
-        }
-        if (data.type !== 'CONFIRM' && data.id) {
-            send('CONFIRM', data.id)
-        }
-    }
-
-    process.on('message', onMessage)
-
-    return {
-        send,
-        close() {
-            process.removeListener('message', onMessage)
-        }
     }
 }
 
 module.exports = Task
 
-function rebuildError(err) {
+function rebuildError(err: any) {
     var error = new Error()
     error.name = err.name
     error.message = err.message

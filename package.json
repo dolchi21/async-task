@@ -9,11 +9,14 @@
   "author": "dolchi21",
   "license": "ISC",
   "devDependencies": {
+    "@types/node": "^14.0.14",
+    "@types/uuid": "^8.0.0",
     "chai": "^4.1.2",
-    "mocha": "^4.0.1"
+    "mocha": "^4.0.1",
+    "typescript": "^3.9.5"
   },
   "dependencies": {
-    "rxjs": "^5.5.1",
-    "uuid": "^3.2.1"
+    "rxjs": "^6.5.5",
+    "uuid": "^8.2.0"
   }
 }
